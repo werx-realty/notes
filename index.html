@@ -437,8 +437,9 @@ function openSettings(){
   if(e.target.closest('#bkOut')){exportBackup();return}
   if(e.target.closest('#bkImp')){$('#bkIn').click();return}
   if(e.target.closest('[data-x]'))m.remove()});
- box.addEventListener('input',e=>{if(e.target.id==='wkC'){S.work=e.target.value;saveS();applyTheme()}if(e.target.id==='appC'){S.appColor=e.target.value;S.theme='custom';saveS();applyTheme()}});
- box.addEventListener('change',e=>{if(e.target.id==='wkC'||e.target.id==='appC')draw()});
+ const onC=e=>{const t=e.target;if(t.id==='wkC'){S.work=t.value;saveS();applyTheme();markCustom(t,t.value,t.closest('.pswatch'))}
+  if(t.id==='appC'){S.appColor=t.value;S.theme='custom';saveS();applyTheme();markCustom(t,t.value,t.closest('.themes'))}};
+ box.addEventListener('input',onC);box.addEventListener('change',onC);
 }
 async function exportBackup(){
  if(N)await saveNote();
@@ -799,7 +800,14 @@ function syncToolbar(){
  $('#tSize').innerHTML=`<span class="szb">${I.wave}<b>${S.tool==='eraser'?S.eraser:S.tools[S.writing].w}</b></span>`;
 }
 const pop=$('#pop');let popFor=null;
-function closePops(){pop.classList.remove('on');popFor=null}
+function markCustom(input,color,group){
+ const lab=input.closest('label');if(!lab)return;
+ if(group)group.querySelectorAll('.on').forEach(x=>{if(x!==lab)x.classList.remove('on')});
+ lab.classList.add('on');const tgt=lab.querySelector('i')||lab;tgt.style.background=color;
+ const sv=tgt.querySelector('svg');if(sv)sv.style.display='none';
+}
+let pendCustom=null;
+function closePops(){pop.classList.remove('on');popFor=null;if(pendCustom){if(!S.custom.includes(pendCustom))S.custom.unshift(pendCustom);S.custom=S.custom.slice(0,14);saveS();pendCustom=null}}
 function openPop(btn,build){
  if(popFor===btn){closePops();return}
  popFor=btn;pop.innerHTML='';build(pop);pop.classList.add('on');
@@ -821,7 +829,8 @@ function buildColor(p){
  ${S.custom.length?'<button class="mi" id="clrC" style="margin-top:8px;font-size:13px;color:var(--muted)">Clear my colors</button>':''}`;
  p.onclick=e=>{const b=e.target.closest('[data-c]');if(b){S.tools[S.writing].c=b.dataset.c;if(S.tool==='eraser')S.tool='write';saveS();syncToolbar();closePops();return}
   if(e.target.closest('#clrC')){S.custom=[];saveS();buildColor(p)}};
- $('#cust',p).addEventListener('change',e=>{const c=e.target.value;if(!S.custom.includes(c))S.custom.unshift(c);S.custom=S.custom.slice(0,14);S.tools[S.writing].c=c;if(S.tool==='eraser')S.tool='write';saveS();syncToolbar();closePops()});
+ const cu=$('#cust',p),onP=e=>{const c=e.target.value;pendCustom=c;S.tools[S.writing].c=c;if(S.tool==='eraser')S.tool='write';saveS();syncToolbar();markCustom(cu,c,p)};
+ cu.addEventListener('input',onP);cu.addEventListener('change',onP);
 }
 function buildSize(p){
  const er=S.tool==='eraser',cur=er?S.eraser:S.tools[S.writing].w,list=er?[1,2,3,4,5,6,7,8,9,10]:SIZES;
@@ -846,8 +855,8 @@ function buildMore(p){
  <button class="mi" data-m="pdf">${I.notes} Print / Save as PDF</button>
  <button class="mi" data-m="set">${I.gear} App settings</button>`;
  const pcIn=$('#pcC',p);
- pcIn.addEventListener('input',e=>{m.paperColor=e.target.value;S.paperColor=m.paperColor;saveS();applyPaper();markDirty()});
- pcIn.addEventListener('change',()=>buildMore(p));
+ const onPc=e=>{m.paperColor=e.target.value;S.paperColor=m.paperColor;saveS();applyPaper();markDirty();markCustom(pcIn,m.paperColor,pcIn.closest('.pswatch'))};
+ pcIn.addEventListener('input',onPc);pcIn.addEventListener('change',onPc);
  p.onclick=e=>{
   const pp=e.target.closest('[data-p]');if(pp){m.paper=pp.dataset.p;S.paper=m.paper;saveS();applyPaper();markDirty();buildMore(p);return}
   const pc=e.target.closest('[data-pc]');if(pc){m.paperColor=pc.dataset.pc;S.paperColor=m.paperColor;saveS();applyPaper();markDirty();buildMore(p);return}
