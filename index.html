@@ -123,7 +123,7 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:16px 0 4px}
 .lbl{font-size:12px;color:var(--muted);font-weight:600;margin:10px 4px 8px;text-transform:uppercase;letter-spacing:.05em}
 .pswatch{display:flex;gap:8px;flex-wrap:wrap}
 .pswatch .sw{width:34px;height:34px}
-.tog{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;font-weight:500;width:100%}
+.tog{text-align:left;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;font-weight:500;width:100%}
 .sw2{width:46px;height:28px;border-radius:14px;background:var(--panel2);position:relative;transition:.2s;flex:none;box-shadow:inset 0 0 0 1px var(--line)}
 .sw2::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .sw2.on{background:var(--accent)}
@@ -138,7 +138,9 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:16px 0 4px}
 .btn{padding:10px 18px;border-radius:10px;background:var(--panel2);font-weight:600}
 .btn.pri{background:var(--accent);color:#fff}
 .btn.dan{background:#ef4444;color:#fff}
-.themes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.themes{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.th{position:relative}
+.th .pl{display:grid;place-items:center;color:var(--muted)}
 .th{border-radius:12px;padding:8px;font-size:12px;font-weight:600;text-align:center;box-shadow:inset 0 0 0 1px var(--line)}
 .th.on{box-shadow:0 0 0 2.5px var(--accent)}
 .th i{display:block;height:34px;border-radius:7px;margin-bottom:6px;box-shadow:inset 0 0 0 1px rgba(128,128,128,.3)}
@@ -267,10 +269,19 @@ const PCOLORS=['#ffffff','#fbf6e9','#fff8d6','#eef3fb','#f1f2f4','#2a2d33','#161
 const WT=[['pen','Pen'],['pencil','Pencil'],['brush','Brush'],['marker','Highlighter']];
 const SIZES=[.5,1,1.5,2,3,4,5,6,8,10];
 
+const APPV=['--bg','--panel','--panel2','--text','--muted','--line'];
 function applyTheme(){
- document.documentElement.dataset.theme=S.theme;
+ const de=document.documentElement;
+ APPV.forEach(v=>de.style.removeProperty(v));
+ if(S.theme==='custom'&&S.appColor){
+  const c=S.appColor,d=lum(c)<.55;
+  const V=d?{'--bg':mix(c,'#000000',.3),'--panel':c,'--panel2':mix(c,'#ffffff',.09),'--text':'#eef0f3','--muted':mix(c,'#ffffff',.55),'--line':mix(c,'#ffffff',.16)}
+           :{'--bg':mix(c,'#000000',.06),'--panel':c,'--panel2':mix(c,'#000000',.06),'--text':'#16181c','--muted':mix(c,'#000000',.55),'--line':mix(c,'#000000',.13)};
+  for(const k in V)de.style.setProperty(k,V[k]);
+  de.dataset.theme=d?'dark':'white';
+ }else de.dataset.theme=S.theme==='custom'?'dark':S.theme;
  document.documentElement.style.setProperty('--work',S.work||'var(--bg)');
- const t=THEMES.find(t=>t[0]===S.theme);$('meta[name=theme-color]').content=t?t[2]:'#16181c';
+ const t=THEMES.find(t=>t[0]===S.theme);$('meta[name=theme-color]').content=S.theme==='custom'&&S.appColor?S.appColor:(t?t[2]:'#16181c');
 }
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),1800)}
 
@@ -409,7 +420,7 @@ function sheet(title,items){const m=modal(`<h3>${esc(title)}</h3>`+items.map((it
 function openSettings(){
  const m=modal('');const box=$('.modal',m);
  const draw=()=>{box.innerHTML=`<h3>Settings</h3>
- <div class="lbl">App color</div><div class="themes">${THEMES.map(t=>`<button class="th ${S.theme===t[0]?'on':''}" data-th="${t[0]}"><i style="background:${t[2]}"></i>${t[1]}</button>`).join('')}</div>
+ <div class="lbl">App color</div><div class="themes">${THEMES.map(t=>`<button class="th ${S.theme===t[0]?'on':''}" data-th="${t[0]}"><i style="background:${t[2]}"></i>${t[1]}</button>`).join('')}<label class="th ${S.theme==='custom'?'on':''}" title="Pick any color"><i class="pl" style="${S.appColor?'background:'+S.appColor:''}">${S.appColor?'':I.plus}</i>${S.appColor?'Custom':'Pick'}<input type="color" id="appC" value="${S.appColor||'#2a2e35'}" style="position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer"></label></div>
  <div class="lbl">Workspace background</div><div class="pswatch">${WORKS.map(c=>`<button class="sw ${S.work===c?'on':''}" data-wk="${c}" style="background:${c||'var(--bg)'}" title="${c?c:'Match app'}">${c?'':'<span style="font-size:10px;font-weight:700">Auto</span>'}</button>`).join('')}<label class="sw add" title="Custom">${I.plus}<input type="color" id="wkC" value="${S.work||'#24272d'}" style="position:absolute;opacity:0;inset:0;width:100%;height:100%"></label></div>
  <div class="lbl">Writing</div>
  <button class="tog" id="tgP"><span>Draw with Apple Pencil only<br><span class="hint" style="margin:0">Fingers scroll the page. Turn off to draw with your finger (two fingers scroll).</span></span><span class="sw2 ${S.pencilOnly?'on':''}"></span></button>
@@ -426,8 +437,8 @@ function openSettings(){
   if(e.target.closest('#bkOut')){exportBackup();return}
   if(e.target.closest('#bkImp')){$('#bkIn').click();return}
   if(e.target.closest('[data-x]'))m.remove()});
- box.addEventListener('input',e=>{if(e.target.id==='wkC'){S.work=e.target.value;saveS();applyTheme()}});
- box.addEventListener('change',e=>{if(e.target.id==='wkC')draw()});
+ box.addEventListener('input',e=>{if(e.target.id==='wkC'){S.work=e.target.value;saveS();applyTheme()}if(e.target.id==='appC'){S.appColor=e.target.value;S.theme='custom';saveS();applyTheme()}});
+ box.addEventListener('change',e=>{if(e.target.id==='wkC'||e.target.id==='appC')draw()});
 }
 async function exportBackup(){
  if(N)await saveNote();
@@ -823,7 +834,7 @@ function buildSize(p){
 function buildMore(p){
  const i=curPage(),m=N.meta;
  p.innerHTML=`<div class="lbl" style="margin-top:2px">Paper</div><div class="seg">${PAPERS.map(([k,n])=>`<button class="${(m.paper||'lined')===k?'on':''}" data-p="${k}">${n}</button>`).join('')}</div>
- <div class="lbl">Paper color</div><div class="pswatch">${PCOLORS.map(c=>`<button class="sw ${(m.paperColor||'#ffffff')===c?'on':''}" data-pc="${c}" style="background:${c}"></button>`).join('')}</div>
+ <div class="lbl">Paper color</div><div class="pswatch">${PCOLORS.map(c=>`<button class="sw ${(m.paperColor||'#ffffff')===c?'on':''}" data-pc="${c}" style="background:${c}"></button>`).join('')}${(()=>{const pc=m.paperColor||'#ffffff',cu=!PCOLORS.includes(pc);return`<label class="sw add ${cu?'on':''}" title="Pick any paper color" style="${cu?'background:'+pc:''}">${cu?'':I.plus}<input type="color" id="pcC" value="${pc}" style="position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer"></label>`})()}</div>
  <div class="hr"></div>
  <button class="tog" data-m="pencil"><span>Draw with Pencil only</span><span class="sw2 ${S.pencilOnly?'on':''}"></span></button>
  <div class="hr"></div>
@@ -834,6 +845,9 @@ function buildMore(p){
  <button class="mi" data-m="img">${I.image} Share / save as pictures</button>
  <button class="mi" data-m="pdf">${I.notes} Print / Save as PDF</button>
  <button class="mi" data-m="set">${I.gear} App settings</button>`;
+ const pcIn=$('#pcC',p);
+ pcIn.addEventListener('input',e=>{m.paperColor=e.target.value;S.paperColor=m.paperColor;saveS();applyPaper();markDirty()});
+ pcIn.addEventListener('change',()=>buildMore(p));
  p.onclick=e=>{
   const pp=e.target.closest('[data-p]');if(pp){m.paper=pp.dataset.p;S.paper=m.paper;saveS();applyPaper();markDirty();buildMore(p);return}
   const pc=e.target.closest('[data-pc]');if(pc){m.paperColor=pc.dataset.pc;S.paperColor=m.paperColor;saveS();applyPaper();markDirty();buildMore(p);return}
