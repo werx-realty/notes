@@ -19,7 +19,7 @@ html[data-theme=dark]{--bg:#16181c;--panel:#1f2227;--panel2:#2a2e35;--text:#ecee
 html[data-theme=grey]{--bg:#3a3d43;--panel:#45484f;--panel2:#53575f;--text:#f1f2f4;--muted:#b7bcc4;--line:#5e626b}
 html[data-theme=white]{--bg:#f2f3f6;--panel:#ffffff;--panel2:#eceef2;--text:#16181c;--muted:#6b7280;--line:#e1e4ea}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+html,body{margin:0;height:100%;overflow:hidden;touch-action:pan-x pan-y;position:fixed;inset:0;width:100%;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
 input{-webkit-user-select:text;user-select:text}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation;padding:0}
 .i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -76,9 +76,12 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;touch-
 .szb .i{height:14px}
 .sp{flex:1;min-width:6px}
 .zl{font-size:12px;color:var(--muted);min-width:38px;text-align:center}
-#wrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;position:relative;background:var(--work)}
+#wrap{flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:touch;position:relative;background:var(--work)}
 .pages{padding:22px 16px 30px;width:max-content;min-width:100%}
 .page{width:var(--pw);aspect-ratio:1000/1294;margin:0 auto 26px;position:relative;background:var(--paper) 0 0/100% 100% no-repeat;box-shadow:0 2px 12px rgba(0,0,0,.3);touch-action:manipulation}
+#wrap.zm{overflow-x:auto}
+.page{touch-action:pan-y}
+#wrap.zm .page{touch-action:pan-x pan-y}
 #wrap.fd .page{touch-action:none}
 .page canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .page canvas.ink{z-index:1}
@@ -511,6 +514,7 @@ function layout(keep=true){
  const ratio=keep&&wrap.scrollHeight?wrap.scrollTop/wrap.scrollHeight:0;
  const pw=Math.round(Math.min(wrap.clientWidth-32,1100)*S.zoom);
  wrap.style.setProperty('--pw',pw+'px');
+ wrap.classList.toggle('zm',S.zoom>1);if(S.zoom<=1)wrap.scrollLeft=0;
  pageEls.forEach((el,i)=>{if(el._cv){sizeCv(el._cv,el);renderInk(i)}});
  if(sel)posSel();
  if(keep)wrap.scrollTop=ratio*wrap.scrollHeight;
@@ -883,6 +887,10 @@ $('#setBtn').innerHTML=I.gear+'<span>Settings</span>';$('#closeBtn').innerHTML=I
 $('#tLasso').innerHTML=I.lasso;$('#tImage').innerHTML=I.image;$('#undoBtn').innerHTML=I.undo;$('#redoBtn').innerHTML=I.redo;
 $('#zIn').innerHTML=I.zin;$('#zOut').innerHTML=I.zout;$('#moreBtn').innerHTML=I.dots;$('#addPageBtn').innerHTML=I.plus+'Add Page';
 
+/* ---------- Stop iPad from zooming/sliding the whole app ---------- */
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{if(e.touches.length>1&&e.cancelable)e.preventDefault()},{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 /* ---------- Boot ---------- */
 (async()=>{
  applyTheme();applyPencilMode();
