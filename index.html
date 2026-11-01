@@ -332,6 +332,20 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:16px 0 4px}
 .cgrid button.on{background:var(--text);color:var(--panel)}
 .cgrid button.src{box-shadow:inset 0 0 0 2px var(--accent)}
 .btn:disabled{opacity:.4}
+.etasks{display:flex;flex-direction:column;gap:6px}
+.etk{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
+.ecir{width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);flex:none;display:grid;place-items:center}
+.etk.st-doing .ecir{border-color:var(--accent);background:conic-gradient(var(--accent) 0 50%,transparent 50%)}
+.etk.st-done .ecir{border-color:var(--accent);background:var(--accent)}
+.etk.st-done .ecir::after{content:"";width:8px;height:4px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.ett{flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere}
+.etk.st-done .ett{text-decoration:line-through;opacity:.5}
+.etk.st-doing .ett{color:var(--accent);font-weight:600}
+.esel{flex:none!important;width:auto!important;padding:6px 8px!important;font-size:13px!important}
+.ex{opacity:.5;flex:none}.ex .i{width:16px}
+.etadd{display:flex;gap:8px;align-items:center}
+.etadd #etIn{flex:1}
+.etadd .btn{padding:9px 14px;white-space:nowrap}
 @media (max-width:1000px){#plan .pside{width:240px}#pSearch{width:120px}}@media (max-width:700px){#plan .pside{display:none}}
 
 /* Calendar */
@@ -1566,8 +1580,14 @@ function renderEdit(){
  ${e.rep&&e.rep!=='none'?`<div class="frow"><span>Until</span><input type="date" class="inp sm" data-f="until" value="${e.until||''}"></div>`:''}
  <input class="inp" data-f="loc" value="${esc(e.loc||'')}" placeholder="Add location">
  <textarea class="inp notes" data-f="notes" placeholder="Notes">${esc(e.notes||'')}</textarea>
+ <div class="lbl" style="display:flex;justify-content:space-between">Tasks<span>${(e.tasks||[]).filter(t=>t.st==='done').length}/${(e.tasks||[]).length} done</span></div>
+ <div class="etasks">${(e.tasks||[]).map(t=>`<div class="etk st-${t.st}"><button class="ecir" data-etog="${t.id}"></button><span class="ett">${esc(t.t)}</span><select class="inp sm esel" data-est="${t.id}">${[['active','Active'],['doing','Doing'],['done','Done']].map(([v,n])=>`<option value="${v}" ${t.st===v?'selected':''}>${n}</option>`).join('')}</select><button class="ex" data-edel="${t.id}">${I.x}</button></div>`).join('')}</div>
+ <div class="etadd"><input class="inp sm" id="etIn" placeholder="Add a task…"><select class="inp sm esel" id="etSt"><option value="active">Active</option><option value="doing">Doing</option><option value="done">Done</option></select><button class="btn pri" data-pe="tadd">+ Add</button></div>
  <div class="mrow" style="justify-content:space-between;flex-wrap:wrap"><button class="btn" data-pe="copy">Copy to dates…</button><button class="btn" data-pe="dup">Duplicate</button><button class="btn dan" data-pe="del">Delete</button></div>`;
 }
+function addETask(e){const i=$('#etIn');if(!i||!i.value.trim())return;e.tasks=e.tasks||[];e.tasks.push({id:uid(),t:i.value.trim(),st:$('#etSt').value});const st=$('#etSt').value;saveP();renderEdit();const n=$('#etIn');n.focus();$('#etSt').value=st}
+$('#pEdit').addEventListener('keydown',ev=>{if(ev.target.id==='etIn'&&ev.key==='Enter'){ev.preventDefault();const e=P.events.find(x=>x.id===pEdit);if(e)addETask(e)}});
+$('#pEdit').addEventListener('change',ev=>{const id=ev.target.dataset.est;if(!id)return;const e=P.events.find(x=>x.id===pEdit),t=e&&(e.tasks||[]).find(x=>x.id===id);if(t){t.st=ev.target.value;saveP();renderEdit()}});
 $('#pEdit').addEventListener('input',ev=>{const f=ev.target.dataset.f;if(!f)return;const e=P.events.find(x=>x.id===pEdit);if(!e)return;
  e[f]=ev.target.value;
  if(f==='start'&&(e.end||'')<e.start)e.end=e.start;
@@ -1578,7 +1598,10 @@ $('#pEdit').addEventListener('input',ev=>{const f=ev.target.dataset.f;if(!f)retu
 $('#pEdit').addEventListener('change',ev=>{if(['rep','start','end','t1','t2'].includes(ev.target.dataset.f))renderEdit()});
 $('#pEdit').addEventListener('click',async ev=>{const e=P.events.find(x=>x.id===pEdit);if(!e)return;
  const c=ev.target.closest('[data-col]');if(c){e.color=c.dataset.col;saveP();renderPlan();renderEdit();return}
+ const tg=ev.target.closest('[data-etog]');if(tg){const t=(e.tasks||[]).find(x=>x.id===tg.dataset.etog);if(t){t.st=t.st==='done'?'active':'done';saveP();renderEdit()}return}
+ const td=ev.target.closest('[data-edel]');if(td){e.tasks=(e.tasks||[]).filter(x=>x.id!==td.dataset.edel);saveP();renderEdit();return}
  const a=ev.target.closest('[data-pe]');if(!a)return;const k=a.dataset.pe;
+ if(k==='tadd'){addETask(e);return}
  if(k==='close')closeEdit();
  else if(k==='allday'){e.allDay=!e.allDay;saveP();renderPlan();renderEdit()}
  else if(k==='del'){if(await confirmBox(e.rep&&e.rep!=='none'?'Delete this repeating event (all dates)?':'Delete this event?','Delete')){P.events=P.events.filter(x=>x!==e);saveP();closeEdit();renderPlan()}}
