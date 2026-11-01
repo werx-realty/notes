@@ -1122,7 +1122,8 @@ function moveXform(e){
  if(!rafX)rafX=requestAnimationFrame(()=>{rafX=0;if(!sel)return;renderInk(sel.pi);sel.images.forEach(im=>posImg(sel.pi,im));posSel()});
 }
 function endXform(a){
- if(!sel)return;const before=a.snap,after=snapSel(),pg=N.pages[a.pi],S1=sel.strokes.slice(),I1=sel.images.slice();
+ if(!sel)return;if(!sel.strokes.length&&sel.images.every(m=>m.txt)&&lineGuide()){sel.images.forEach(m=>{const k=m.h/(m.fs*1.32);if(Math.abs(k-1)>.02){const g=lineGuide();m.w=m.w/k;m.h=m.h/k}snapTxt(m)});const i=sel.pi;sel.images.forEach(m=>posImg(i,m));posSel()}
+ const before=a.snap,after=snapSel(),pg=N.pages[a.pi],S1=sel.strokes.slice(),I1=sel.images.slice();
  if(JSON.stringify(before)===JSON.stringify(after))return;
  pushU({undo(){applySnap(pg,S1,I1,before)},redo(){applySnap(pg,S1,I1,after)}});markDirty();
 }
@@ -1159,10 +1160,12 @@ function selFit(){
 /* ---------- Handwriting → typed text ---------- */
 let conv=null,convT=0,convWarned=false;
 function queueConv(pi,s){if(conv&&conv.pi!==pi)runConv();conv=conv||{pi,strokes:[]};conv.strokes.push(s);clearTimeout(convT);convT=setTimeout(runConv,1100)}
+function lineGuide(){const p=N&&N.meta.paper||'lined';if(p==='lined')return{first:130,gap:38,left:118,fs:26};if(p==='grid'||p==='dotted')return{first:40,gap:40,left:40,fs:27};return null}
+function snapTxt(im){const g=lineGuide();if(!g||!im.txt)return;const base=im.y+im.h*(1/1.32)*1;let n=Math.round((base-g.first)/g.gap);n=clamp(n,0,Math.floor((H-20-g.first)/g.gap));const line=g.first+n*g.gap;const k=im.h/(im.fs*1.32);im.y=line-im.fs*k-4*k;if(im.x<g.left-2&&N.meta.paper==='lined')im.x=g.left}
 function txtImage(txt,fs,c){
  const f=`${fs}px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif`,cv=document.createElement('canvas'),x=cv.getContext('2d');x.font=f;
- const w=Math.ceil(x.measureText(txt).width)+fs*.3,h=Math.ceil(fs*1.35),k=2;cv.width=w*k;cv.height=h*k;
- x.scale(k,k);x.font=f;x.fillStyle=c;x.textBaseline='middle';x.fillText(txt,fs*.15,h/2);
+ const w=Math.ceil(x.measureText(txt).width)+fs*.3,h=Math.ceil(fs*1.32),k=2;cv.width=w*k;cv.height=h*k;
+ x.scale(k,k);x.font=f;x.fillStyle=c;x.textBaseline='alphabetic';x.fillText(txt,fs*.15,fs);
  return{src:cv.toDataURL('image/png'),w,h};
 }
 async function recognize(strokes){
@@ -1176,12 +1179,20 @@ async function runConv(){
  let alts;try{if(!navigator.onLine)throw 0;alts=await recognize(strokes)}catch(_){if(!convWarned){toast('Needs internet to turn writing into text');convWarned=true}return}
  if(!alts.length||!N||N.pages[c.pi]!==pg||!strokes.every(s=>pg.strokes.includes(s)))return;
  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const s of strokes)for(let i=0;i<s.p.length;i+=3){x0=Math.min(x0,s.p[i]);y0=Math.min(y0,s.p[i+1]);x1=Math.max(x1,s.p[i]);y1=Math.max(y1,s.p[i+1])}
- const col=strokes[0].c,fs=Math.round(clamp((y1-y0)*.8,18,160)),ti=txtImage(alts[0],fs,col);
- const im={id:uid(),src:ti.src,x:x0,y:(y0+y1)/2-ti.h/2,w:ti.w,h:ti.h,ar:ti.w/ti.h,txt:alts[0],alts:alts.slice(0,6),fs,c:col};
+ const col=strokes[0].c,g=lineGuide(),fs=g?g.fs:Math.round(clamp((y1-y0)*.8,18,160));
+ // fit on the lines: start on the line the writing sits on, wrap long text onto the next lines
+ const ims=[];let words=alts[0].split(' '),row=0,sx=g&&N.meta.paper==='lined'?Math.max(x0,g.left):x0;
+ const meas=document.createElement('canvas').getContext('2d');meas.font=`${fs}px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif`;
+ let baseLine=g?g.first+clamp(Math.round(((y0+y1)/2+fs*.35-g.first)/g.gap),0,99)*g.gap:0;
+ while(words.length){let line=words.shift();while(words.length&&meas.measureText(line+' '+words[0]).width+fs*.3<W-24-(row?(g?g.left:x0):sx))line+=' '+words.shift();
+  const ti=txtImage(line,fs,col),x=row?(g&&N.meta.paper==='lined'?g.left:x0):sx;
+  const y=g?baseLine+row*g.gap-fs-4:(y0+y1)/2-ti.h/2+row*ti.h;
+  ims.push({id:uid(),src:ti.src,x,y,w:ti.w,h:ti.h,ar:ti.w/ti.h,txt:line,alts:ims.length?[line]:alts.slice(0,6),fs,c:col});row++}
+ const im=ims[0];
  const idx=strokes.map(s=>pg.strokes.indexOf(s));
- const apply=()=>{strokes.forEach(s=>rm(pg.strokes,s));pg.images.push(im);const i=pgOf(pg);renderInk(i);renderImgs(i)};
+ const apply=()=>{strokes.forEach(s=>rm(pg.strokes,s));pg.images.push(...ims);const i=pgOf(pg);renderInk(i);renderImgs(i)};
  apply();
- pushU({undo(){rm(pg.images,im);strokes.forEach((s,k)=>pg.strokes.splice(Math.min(idx[k],pg.strokes.length),0,s));const i=pgOf(pg);renderInk(i);renderImgs(i)},redo:apply});
+ pushU({undo(){ims.forEach(m=>rm(pg.images,m));strokes.forEach((s,k)=>pg.strokes.splice(Math.min(idx[k],pg.strokes.length),0,s));const i=pgOf(pg);renderInk(i);renderImgs(i)},redo:apply});
  markDirty();
 }
 function editTxt(){
