@@ -26,6 +26,9 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .ptxt,.pmark{white-space:pre-wrap;overflow-wrap:break-word;word-break:normal}
 .ptxt,.pmark{position:absolute;left:12%;right:3%;top:calc(92/1294*100%);bottom:2%;margin:0;padding:calc(var(--pw)*.004) 0 0;border:0;outline:none;resize:none;overflow:hidden;background:transparent;z-index:3;pointer-events:none;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;font-size:calc(var(--pw)*.024);line-height:calc(var(--pw)*.038);color:var(--ptc,#1a1a1a);caret-color:var(--accent);-webkit-touch-callout:default;touch-action:auto}
 #wrap.ty .ptxt{pointer-events:auto}
+#wrap.chalkmode .page{box-shadow:0 0 0 14px #6b5440,0 0 0 16px #4a3a2c,0 10px 30px rgba(0,0,0,.45);border-radius:2px;margin-bottom:46px}
+#wrap.chalkmode .pages{padding-top:36px}
+#wrap.chalkmode .ptxt{font-family:"Patrick Hand",Caveat,cursive;font-size:calc(var(--pw)*.028)}
 .pmark{z-index:2;pointer-events:none;color:transparent!important;-webkit-user-select:none;user-select:none}
 .pmark mark{background:none;color:transparent;text-decoration:underline wavy;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-skip-ink:none}
 .pmark mark.s{text-decoration-color:#ef4444}.pmark mark.g{text-decoration-color:#2f6fed}
@@ -532,6 +535,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 /* ---------- Icons ---------- */
 const I0={
 pen:'<path d="M15 4.5l4.5 4.5L8.5 20H4v-4.5z"/><path d="M13 6.5l4.5 4.5"/>',
+chalk:'<path d="M14 4l6 6-9 9-6-6z"/><path d="M5 13l-1.5 5.5L9 17"/><path d="M11 7l6 6" opacity=".5"/>',
 pencil:'<path d="M16 3.5l4.5 4.5L9 19.5l-5.5 1 1-5.5z"/><path d="M4.5 15l4.5 4.5M14 5.5l4.5 4.5"/>',
 brush:'<path d="M20.5 3.5L11.5 12.5"/><path d="M11 12l1 1c.8 1.4.8 2.8 0 4-1.4 2.1-5 2.7-8 1.5 1.8-.8 2.7-1.9 3-3.5.4-2 2-3.2 4-3z"/>',
 marker:'<path d="M14.5 4l5.5 5.5-8 8H7.5V13z"/><path d="M7.5 17.5L5 20h4.5"/>',
@@ -573,7 +577,7 @@ const DB={db:null,
 
 /* ---------- Settings ---------- */
 const DEF={theme:'dark',work:'',pencilOnly:true,sidebar:true,folders:[],tool:'write',writing:'pen',
- tools:{pen:{c:'#000000',w:2},pencil:{c:'#4a4f57',w:1.5},brush:{c:'#2f6fed',w:3},marker:{c:'#f5d75a',w:4},sharpie:{c:'#000000',w:3}},
+ tools:{pen:{c:'#000000',w:2},pencil:{c:'#4a4f57',w:1.5},brush:{c:'#2f6fed',w:3},marker:{c:'#f5d75a',w:4},sharpie:{c:'#000000',w:3},chalk:{c:'#f3f1ea',w:3}},
  eraser:4,custom:[],paper:'lined',paperColor:'#ffffff',zoom:1};
 let S;try{S=Object.assign({},DEF,JSON.parse(localStorage.getItem('hn-set')||'{}'))}catch(_){S={...DEF}}
 S.tools=Object.assign({},DEF.tools,S.tools||{});
@@ -583,9 +587,9 @@ const saveS=()=>{try{localStorage.setItem('hn-set',JSON.stringify(S))}catch(_){}
 const THEMES=[['darker','Darker','#08090b'],['dark','Dark','#1f2227'],['grey','Grey','#45484f'],['white','White','#ffffff']];
 const WORKS=['','#000000','#121417','#24272d','#3a3e46','#6b717b','#c9cdd3','#e9ebef','#f6f1e7'];
 const COLORS=['#000000','#4a4f57','#8a9099','#ffffff','#5ac8fa','#2f6fed','#1e3a8a','#9b5de5','#b030c8','#f05a4a','#ff6b93','#f0a050','#f5d75a','#6cc070','#5fc4b0','#8b5a2b'];
-const PAPERS=[['blank','Blank'],['lined','Lined'],['grid','Grid'],['dotted','Dots']];
+const PAPERS=[['blank','Blank'],['lined','Lined'],['grid','Grid'],['dotted','Dots'],['board','Board']];
 const PCOLORS=['#ffffff','#fbf6e9','#fff8d6','#eef3fb','#f1f2f4','#2a2d33','#16181c'];
-const WT=[['pen','Pen'],['pencil','Pencil'],['sharpie','Sharpie'],['brush','Brush'],['marker','Highlighter']];
+const WT=[['chalk','Chalk'],['pen','Pen'],['pencil','Pencil'],['sharpie','Sharpie'],['brush','Brush'],['marker','Highlighter']];
 const SIZES=[.5,1,1.5,2,3,4,5,6,8,10];
 
 const APPV=['--bg','--panel','--panel2','--text','--muted','--line'];
@@ -616,23 +620,36 @@ function paperOps(style,color){
  if(style==='lined'){for(let y=130;y<H-10;y+=38)L.push([0,y,W,y,lc,1.4]);L.push([110,0,110,H,mc,1.4])}
  else if(style==='grid'){for(let x=40;x<W;x+=40)L.push([x,0,x,H,lc,1.1]);for(let y=40;y<H;y+=40)L.push([0,y,W,y,lc,1.1])}
  else if(style==='dotted'){for(let x=40;x<W;x+=40)for(let y=40;y<H;y+=40)D.push([x,y])}
- return{color,L,D,dc};
+ return{color,L,D,dc,board:style==='board'};
 }
 function paperSVG(o){let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><rect width="${W}" height="${H}" fill="${o.color}"/>`;
+ if(o.board)s+=`<filter id="cn"><feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="3" seed="7"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .09 0"/></filter><rect width="${W}" height="${H}" filter="url(#cn)"/><filter id="cn2"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="1" seed="3"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .05 0"/></filter><rect width="${W}" height="${H}" filter="url(#cn2)"/>`;
  for(const l of o.L)s+=`<line x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" stroke="${l[4]}" stroke-width="${l[5]}"/>`;
  if(o.D.length){s+=`<g fill="${o.dc}">`;for(const d of o.D)s+=`<circle cx="${d[0]}" cy="${d[1]}" r="2.4"/>`;s+='</g>'}
  return s+'</svg>'}
 function drawPaper(ctx,o){ctx.fillStyle=o.color;ctx.fillRect(0,0,W,H);
+ if(o.board){const g=ctx.createRadialGradient(W*.4,H*.35,50,W*.5,H*.5,H*.8);g.addColorStop(0,'rgba(255,255,255,.06)');g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
  for(const l of o.L){ctx.strokeStyle=l[4];ctx.lineWidth=l[5];ctx.beginPath();ctx.moveTo(l[0],l[1]);ctx.lineTo(l[2],l[3]);ctx.stroke()}
  ctx.fillStyle=o.dc;for(const d of o.D){ctx.beginPath();ctx.arc(d[0],d[1],2.4,0,7);ctx.fill()}}
 
 /* ---------- Ink rendering ---------- */
-function baseW(s){return s.t==='marker'?s.w*6:s.t==='sharpie'?s.w*4:s.t==='brush'?s.w*3:s.w*1.5}
+function baseW(s){return s.t==='chalk'?s.w*3:s.t==='marker'?s.w*6:s.t==='sharpie'?s.w*4:s.t==='brush'?s.w*3:s.w*1.5}
 function drawStroke(ctx,s,paper){
  const p=s.p,n=p.length/3;if(!n)return;
  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
  const col=s.t==='pencil'?mix(s.c,paper||'#ffffff',.22):s.c;
  ctx.strokeStyle=ctx.fillStyle=col;
+ if(s.t==='chalk'){
+  // textured chalk: a soft core plus grainy specks, same every redraw
+  const b=baseW(s),rnd=k=>{const x=Math.sin(k*12.9898+p[0]*78.233)*43758.5453;return x-Math.floor(x)};
+  ctx.globalAlpha=.55;ctx.lineWidth=b*.55;ctx.beginPath();ctx.moveTo(p[0],p[1]);if(n===1)ctx.lineTo(p[0]+.1,p[1]);
+  for(let i=1;i<n;i++)ctx.lineTo(p[i*3],p[i*3+1]);ctx.stroke();
+  ctx.globalAlpha=.8;let c=0;
+  for(let i=0;i<n;i++){const x0=p[i*3],y0=p[i*3+1],x1=i<n-1?p[i*3+3]:x0+.01,y1=i<n-1?p[i*3+4]:y0,d=Math.hypot(x1-x0,y1-y0),st=Math.max(1,Math.ceil(d/1.6));
+   for(let j=0;j<st;j++){const t=j/st,x=x0+(x1-x0)*t,y=y0+(y1-y0)*t,m=Math.max(2,Math.round(b*.9));
+    for(let q=0;q<m;q++){c++;if(rnd(c)<.38)continue;const a=rnd(c+.3)*6.283,r=Math.sqrt(rnd(c+.7))*b/2,sz=.6+rnd(c+.9)*1.4;ctx.fillRect(x+Math.cos(a)*r,y+Math.sin(a)*r,sz,sz)}}}
+  ctx.restore();return;
+ }
  if(s.t==='marker'||s.t==='sharpie'){
   if(s.t==='marker')ctx.globalAlpha=.38;ctx.lineWidth=baseW(s);ctx.beginPath();ctx.moveTo(p[0],p[1]);
   if(n===1)ctx.lineTo(p[0]+.1,p[1]);
@@ -664,15 +681,16 @@ function readDown(file){return new Promise((res,rej)=>{const u=URL.createObjectU
 let metas=[],view='all',q='';
 const newPage=()=>({id:uid(),strokes:[],images:[]});
 const isScr=m=>!!m&&m.kind==='scribble';
+const isChalk=m=>!!m&&m.kind==='chalk';
 const isDay=m=>!!m&&m.kind==='day';
-const nm=m=>m.title||(isDay(m)?dayLabel(m.date):isScr(m)?'Untitled Scribble':'Untitled Note');
+const nm=m=>m.title||(isDay(m)?dayLabel(m.date):isScr(m)?'Untitled Scribble':isChalk(m)?'Untitled Board':'Untitled Note');
 const isEmpty=p=>!p.strokes.length&&!p.images.length&&!(p.text&&p.text.trim());
 
 function renderLibrary(){renderSide();renderGrid()}
 function renderSide(){
  const n=f=>metas.filter(f).length;
  const nav=(id,label,ic,c,fm)=>`<button class="nav ${view===id?'on':''}" data-v="${id}">${ic}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span><span class="cnt">${c}</span>${fm?`<span class="fm" data-fm="${id}">${I.dots}</span>`:''}</button>`;
- let h=nav('all','All Notes',I.notes,n(m=>!m.trashed&&!isScr(m)&&!isDay(m)))+nav('scr','Scribbles',I.scribble,n(m=>!m.trashed&&isScr(m)));
+ let h=nav('all','All Notes',I.notes,n(m=>!m.trashed&&!isScr(m)&&!isDay(m)&&!isChalk(m)))+nav('scr','Scribbles',I.scribble,n(m=>!m.trashed&&isScr(m)))+nav('chalk','Chalkboard',I.chalk,n(m=>!m.trashed&&isChalk(m)));
  h+=`<button class="nav" data-calopen="1">${I.cal}<span>Calendar</span></button><button class="nav" data-planopen="1">${I.notes}<span>Planner</span></button><button class="nav" data-ringopen="1">${I.ring}<span>Day Ring</span></button>`;
  h+=`<div class="sec">Notebooks<button id="addFolder">+ New</button></div>`;
  h+=S.folders.map(f=>nav(f.id,f.name,I.folder,n(m=>m.folder===f.id&&!m.trashed),1)).join('');
@@ -681,15 +699,15 @@ function renderSide(){
  h+=`<div class="sec"></div>`+nav('trash','Trash',I.trash,n(m=>m.trashed));
  $('#navs').innerHTML=h;
 }
-function vName(){if(view==='all')return'All Notes';if(view==='scr')return'Scribbles';if(view==='fav')return'Favorites';if(view==='trash')return'Trash';const f=S.folders.find(f=>f.id===view);return f?f.name:'All Notes'}
+function vName(){if(view==='all')return'All Notes';if(view==='scr')return'Scribbles';if(view==='chalk')return'Chalkboard';if(view==='fav')return'Favorites';if(view==='trash')return'Trash';const f=S.folders.find(f=>f.id===view);return f?f.name:'All Notes'}
 function fmtD(t){const d=new Date(t),now=new Date();return d.toDateString()===now.toDateString()?d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:d.getFullYear()===now.getFullYear()?undefined:'numeric'})}
 function renderGrid(){
- if(view!=='all'&&view!=='scr'&&view!=='fav'&&view!=='trash'&&!S.folders.find(f=>f.id===view))view='all';
+ if(view!=='all'&&view!=='scr'&&view!=='chalk'&&view!=='fav'&&view!=='trash'&&!S.folders.find(f=>f.id===view))view='all';
  $('#vTitle').textContent=vName();
- let list=metas.filter(m=>view==='trash'?m.trashed:!m.trashed&&(view==='all'?!isScr(m)&&!isDay(m):view==='scr'?isScr(m):view==='fav'?m.fav&&!isDay(m):m.folder===view));
+ let list=metas.filter(m=>view==='trash'?m.trashed:!m.trashed&&(view==='all'?!isScr(m)&&!isDay(m)&&!isChalk(m):view==='scr'?isScr(m):view==='chalk'?isChalk(m):view==='fav'?m.fav&&!isDay(m):m.folder===view));
  if(q)list=list.filter(m=>nm(m).toLowerCase().includes(q));
  list.sort((a,b)=>b.updated-a.updated);
- let h=view==='trash'?'':`<div class="card newc"><div class="thumb">${I.plus}</div><div class="cm"><div><div class="t">${view==='scr'?'New Scribble':'New Note'}</div><div class="d">&nbsp;</div></div></div></div>`;
+ let h=view==='trash'?'':`<div class="card newc"><div class="thumb">${I.plus}</div><div class="cm"><div><div class="t">${view==='scr'?'New Scribble':view==='chalk'?'New Board':'New Note'}</div><div class="d">&nbsp;</div></div></div></div>`;
  h+=list.map(m=>`<div class="card" data-id="${m.id}"><div class="thumb" style="background:${m.paperColor||'#fff'}">${m.thumb?`<img src="${m.thumb}" alt="">`:''}${m.fav?`<span class="st">${I.star}</span>`:''}</div><div class="cm"><div style="flex:1;min-width:0"><div class="t">${esc(nm(m))}</div><div class="d">${fmtD(m.updated)} · ${m.pageCount||1} pg</div></div><button class="more" data-more="${m.id}">${I.dots}</button></div></div>`).join('');
  if(!list.length&&(view==='trash'||q))h+=`<div class="empty">${q?'No matching notes':'Trash is empty'}</div>`;
  $('#grid').innerHTML=h;
@@ -713,9 +731,10 @@ $('#newBtn').onclick=()=>newNote();
 $('#setBtn').onclick=$('#gear2').onclick=()=>openSettings();
 
 async function newNote(){
- const folder=(view!=='all'&&view!=='scr'&&view!=='fav'&&view!=='trash')?view:null,scr=view==='scr';
+ const folder=(view!=='all'&&view!=='scr'&&view!=='chalk'&&view!=='fav'&&view!=='trash')?view:null,scr=view==='scr',chk=view==='chalk';
  const m={id:uid(),title:'',folder,fav:view==='fav',trashed:false,created:Date.now(),updated:Date.now(),pageCount:1,paper:scr?'blank':S.paper,paperColor:scr?(S.scribColor||'#ffffff'):S.paperColor,thumb:''};
  if(scr)m.kind='scribble';
+ if(chk){m.kind='chalk';m.paper='board';m.paperColor=S.chalkColor||'#2b3134'}
  await DB.put('meta',m);await DB.put('data',{id:m.id,pages:[newPage()]});metas.push(m);openNote(m.id,true);
 }
 async function noteMenu(id){
@@ -802,8 +821,9 @@ async function openNote(id,isNew){
  for(const p of N.pages){p.strokes=p.strokes||[];p.images=p.images||[]}
  if(!isEmpty(N.pages[N.pages.length-1]))N.pages.push(newPage());
  undoS=[];redoS=[];sel=null;act=null;
- $('#title').value=meta.title||'';$('#title').placeholder=isDay(meta)?dayLabel(meta.date):isScr(meta)?'Untitled Scribble':'Untitled Note';
+ $('#title').value=meta.title||'';$('#title').placeholder=isDay(meta)?dayLabel(meta.date):isScr(meta)?'Untitled Scribble':isChalk(meta)?'Untitled Board':'Untitled Note';
  {const t=S.tools[S.writing],dk=lum(meta.paperColor||'#fff')<.45;if(dk&&lum(t.c)<.3)t.c='#ffffff';else if(!dk&&lum(t.c)>.85)t.c='#000000';}$('#tText').style.display=$('#tType').style.display=isScr(meta)?'none':'';
+ wrap.classList.toggle('chalkmode',isChalk(meta));if(isChalk(meta)){if(!meta._seen){S.writing='chalk';meta._seen=1}}else if(S.writing==='chalk')S.writing='pen';
  if(isDay(meta))show('cal',true);else show('ed');applyPaper(false);buildPages();if(isScr(meta)){wrap.classList.remove('tm');wrap.classList.remove('ty');['#tWrite','#tEraser','#tLasso','#tSize'].forEach(q=>$(q).style.opacity='')}else{setTextMode(!!S.textMode,1);setTypeMode(!!S.typeMode,1)}N.pages.forEach((p,k)=>{if(p.text&&p.text.trim())setTimeout(()=>checkPage(p.id),300+k*900)});wrap.scrollTop=0;wrap.scrollLeft=0;updUndo();syncToolbar();updPageLbl();
  if(isNew)setTimeout(()=>{$('#title').focus()},120);
 }
@@ -1177,7 +1197,7 @@ function queueConv(pi,s){if(conv&&conv.pi!==pi)runConv();conv=conv||{pi,strokes:
 function lineGuide(){const p=N&&N.meta.paper||'lined';if(p==='lined')return{first:130,gap:38,left:118,fs:26};if(p==='grid'||p==='dotted')return{first:40,gap:40,left:40,fs:27};return null}
 function snapTxt(im){const g=lineGuide();if(!g||!im.txt)return;const base=im.y+im.h*(1/1.32)*1;let n=Math.round((base-g.first)/g.gap);n=clamp(n,0,Math.floor((H-20-g.first)/g.gap));const line=g.first+n*g.gap;const k=im.h/(im.fs*1.32);im.y=line-im.fs*k-4*k;if(im.x<g.left-2&&N.meta.paper==='lined')im.x=g.left}
 function txtImage(txt,fs,c){
- const f=`${fs}px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif`,cv=document.createElement('canvas'),x=cv.getContext('2d');x.font=f;
+ const f=`${fs}px ${N&&isChalk(N.meta)?'"Patrick Hand",Caveat,cursive':'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif'}`,cv=document.createElement('canvas'),x=cv.getContext('2d');x.font=f;
  const w=Math.ceil(x.measureText(txt).width)+fs*.3,h=Math.ceil(fs*1.32),k=2;cv.width=w*k;cv.height=h*k;
  x.scale(k,k);x.font=f;x.fillStyle=c;x.textBaseline='alphabetic';x.fillText(txt,fs*.15,fs);
  return{src:cv.toDataURL('image/png'),w,h};
@@ -1295,7 +1315,7 @@ function openPop(btn,build){
 document.addEventListener('pointerdown',e=>{if(popFor&&!e.target.closest('#pop')&&!popFor.contains(e.target))closePops()},true);
 
 function buildWrite(p){
- p.innerHTML=WT.map(([k,n])=>`<button class="row ${S.writing===k?'on':''}" data-w="${k}">${I[k]}<span>${n}</span><svg class="prev" viewBox="0 0 120 30"><path d="M8 20C30 2 50 2 62 15s38 13 50-5" fill="none" stroke="${S.tools[k].c}" stroke-width="${k==='marker'?11:k==='sharpie'?8:k==='brush'?6:k==='pencil'?2.2:3}" stroke-linecap="round" opacity="${k==='marker'?.45:1}"/></svg></button>`).join('');
+ p.innerHTML=WT.map(([k,n])=>`<button class="row ${S.writing===k?'on':''}" data-w="${k}">${I[k]}<span>${n}</span><svg class="prev" viewBox="0 0 120 30"><path d="M8 20C30 2 50 2 62 15s38 13 50-5" fill="none" stroke="${S.tools[k].c}" stroke-width="${k==='chalk'?6:k==='marker'?11:k==='sharpie'?8:k==='brush'?6:k==='pencil'?2.2:3}" stroke-linecap="round" opacity="${k==='marker'?.45:1}"/></svg></button>`).join('');
  p.onclick=e=>{const b=e.target.closest('[data-w]');if(!b)return;S.writing=b.dataset.w;setTool('write');closePops()};
 }
 function buildColor(p){
@@ -1332,11 +1352,11 @@ function buildMore(p){
  <button class="mi" data-m="pdf">${I.notes} Print / Save as PDF</button>
  <button class="mi" data-m="set">${I.gear} App settings</button>`;
  const pcIn=$('#pcC',p);
- const onPc=e=>{m.paperColor=e.target.value;if(isScr(m))S.scribColor=m.paperColor;else S.paperColor=m.paperColor;saveS();applyPaper();markDirty();markCustom(pcIn,m.paperColor,pcIn.closest('.pswatch'))};
+ const onPc=e=>{m.paperColor=e.target.value;if(isScr(m))S.scribColor=m.paperColor;else if(isChalk(m))S.chalkColor=m.paperColor;else S.paperColor=m.paperColor;saveS();applyPaper();markDirty();markCustom(pcIn,m.paperColor,pcIn.closest('.pswatch'))};
  pcIn.addEventListener('input',onPc);pcIn.addEventListener('change',onPc);
  p.onclick=e=>{
   const pp=e.target.closest('[data-p]');if(pp){m.paper=pp.dataset.p;if(!isScr(m))S.paper=m.paper;saveS();applyPaper();markDirty();buildMore(p);return}
-  const pc=e.target.closest('[data-pc]');if(pc){m.paperColor=pc.dataset.pc;if(isScr(m))S.scribColor=m.paperColor;else S.paperColor=m.paperColor;saveS();applyPaper();markDirty();buildMore(p);return}
+  const pc=e.target.closest('[data-pc]');if(pc){m.paperColor=pc.dataset.pc;if(isScr(m))S.scribColor=m.paperColor;else if(isChalk(m))S.chalkColor=m.paperColor;else S.paperColor=m.paperColor;saveS();applyPaper();markDirty();buildMore(p);return}
   const b=e.target.closest('[data-m]');if(!b)return;const a=b.dataset.m;
   if(a==='pencil'){S.pencilOnly=!S.pencilOnly;saveS();applyPencilMode();buildMore(p);return}
   closePops();
