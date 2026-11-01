@@ -1215,18 +1215,25 @@ async function runConv(){
  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const s of strokes)for(let i=0;i<s.p.length;i+=3){x0=Math.min(x0,s.p[i]);y0=Math.min(y0,s.p[i+1]);x1=Math.max(x1,s.p[i]);y1=Math.max(y1,s.p[i+1])}
  const col=strokes[0].c,g=lineGuide(),fs=g?g.fs:Math.round(clamp((y1-y0)*.8,18,160));
  // fit on the lines: start on the line the writing sits on, wrap long text onto the next lines
- const ims=[];let words=alts[0].split(' '),row=0,sx=g&&N.meta.paper==='lined'?Math.max(x0,g.left):x0;
- const meas=document.createElement('canvas').getContext('2d');meas.font=`${fs}px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif`;
+ const clean=t=>t.replace(/_/g,' ').replace(/\s+/g,' ').trim();
+ alts=alts.map(clean).filter(Boolean);if(!alts.length)return;
  let baseLine=g?g.first+clamp(Math.round(((y0+y1)/2+fs*.35-g.first)/g.gap),0,99)*g.gap:0;
+ // keep words together: join onto text already on this line, with one space, like typing
+ let prev=null,full=alts[0];
+ if(g){const bl=m=>m.y+m.h/1.32+4*(m.h/(m.fs*1.32));prev=pg.images.filter(m=>m.txt&&Math.abs(bl(m)-baseLine)<8&&m.x<x0).sort((a,b)=>b.x-a.x)[0]||null;
+  if(prev){full=prev.txt+' '+alts[0];alts=[full,...alts.slice(1).map(a=>prev.txt+' '+a)]}}
+ const ims=[];let words=full.split(' '),row=0,sx=prev?prev.x:g&&N.meta.paper==='lined'?Math.max(x0,g.left):x0;
+ const meas=document.createElement('canvas').getContext('2d');meas.font=`${fs}px ${N&&isChalk(N.meta)?'"Patrick Hand",Caveat,cursive':'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif'}`;
  while(words.length){let line=words.shift();while(words.length&&meas.measureText(line+' '+words[0]).width+fs*.3<W-24-(row?(g?g.left:x0):sx))line+=' '+words.shift();
   const ti=txtImage(line,fs,col),x=row?(g&&N.meta.paper==='lined'?g.left:x0):sx;
   const y=g?baseLine+row*g.gap-fs-4:(y0+y1)/2-ti.h/2+row*ti.h;
   ims.push({id:uid(),src:ti.src,x,y,w:ti.w,h:ti.h,ar:ti.w/ti.h,txt:line,alts:ims.length?[line]:alts.slice(0,6),fs,c:col});row++}
  const im=ims[0];
  const idx=strokes.map(s=>pg.strokes.indexOf(s));
- const apply=()=>{strokes.forEach(s=>rm(pg.strokes,s));pg.images.push(...ims);const i=pgOf(pg);renderInk(i);renderImgs(i)};
+ const pIdx=prev?pg.images.indexOf(prev):-1;
+ const apply=()=>{strokes.forEach(s=>rm(pg.strokes,s));if(prev)rm(pg.images,prev);pg.images.push(...ims);const i=pgOf(pg);renderInk(i);renderImgs(i)};
  apply();
- pushU({undo(){ims.forEach(m=>rm(pg.images,m));strokes.forEach((s,k)=>pg.strokes.splice(Math.min(idx[k],pg.strokes.length),0,s));const i=pgOf(pg);renderInk(i);renderImgs(i)},redo:apply});
+ pushU({undo(){ims.forEach(m=>rm(pg.images,m));if(prev)pg.images.splice(Math.min(pIdx,pg.images.length),0,prev);strokes.forEach((s,k)=>pg.strokes.splice(Math.min(idx[k],pg.strokes.length),0,s));const i=pgOf(pg);renderInk(i);renderImgs(i)},redo:apply});
  markDirty();
 }
 function editTxt(){
